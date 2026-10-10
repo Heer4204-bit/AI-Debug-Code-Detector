@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Debug Code Detector &lt;/&gt;</title>
+  
+  <!-- Highlight.js CSS for Syntax Highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+  
+  <style>
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --border-color: #30363d;
+      --text-main: #c9d1d9;
+      --text-muted: #8b949e;
+      --accent-glow: #58a6ff;
+      --danger-color: #f85149;
+      --success-color: #2ea043;
+      --warning-color: #d29922;
+      --font-mono: 'Fira Code', 'Courier New', Courier, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background-color: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .brand-icon {
+      color: var(--accent-glow);
+      font-family: var(--font-mono);
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      background: rgba(46, 160, 67, 0.15);
+      color: #3fb950;
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      border: 1px solid rgba(46, 160, 67, 0.4);
+    }
+
+    .status-pulse {
+      width: 8px;
+      height: 8px;
+      background-color: #3fb950;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #3fb950;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 0.7; }
+      50% { transform: scale(1.2); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.7; }
+    }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      padding: 1.5rem;
+      max-width: 1600px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .panel {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      background-color: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0.75rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-title {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .controls {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    select, button {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 0.4rem 0.8rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button:hover, select:hover {
+      border-color: var(--text-muted);
+    }
+
+    button.btn-primary {
+      background-color: #238636;
+      color: #fff;
+      border-color: rgba(240, 246, 252, 0.1);
+      font-weight: 600;
+    }
+
+    button.btn-primary:hover {
+      background-color: #2ea043;
+    }
+
+    .editor-container {
+      position: relative;
+      flex: 1;
+      min-height: 400px;
+    }
+
+    textarea#code-input {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      padding: 1rem;
+      border: none;
+      outline: none;
+      resize: none;
+      line-height: 1.5;
+    }
+
+    .output-container {
+      padding: 1rem;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .issue-card {
+      background-color: var(--bg-primary);
+      border-left: 4px solid var(--danger-color);
+      border-radius: 0 4px 4px 0;
+      padding: 1rem;
+    }
+
+    .issue-card.warning {
+      border-left-color: var(--warning-color);
+    }
+
+    .issue-card.info {
+      border-left-color: var(--accent-glow);
+    }
+
+    .issue-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+      font-size: 0.85rem;
+    }
+
+    .issue-title {
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .issue-line {
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .issue-desc {
+      font-size: 0.9rem;
+      color: var(--text-main);
+      margin-bottom: 0.75rem;
+    }
+
+    pre code {
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+
+    .loader {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 2rem;
+      color: var(--text-muted);
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border-color);
+      border-top-color: var(--accent-glow);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <span class="brand-icon">&lt;/&gt;</span>
+      <span>AI Debug Code Detector</span>
+    </div>
+    <div class="status-badge">
+      <div class="status-pulse"></div>
+      <span>AI Engine Active</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- Left Panel: Input -->
+    <section class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Source Input</span>
+        <div class="controls">
+          <select id="language-select">
+            <option value="html">HTML</option>
+            <option value="css">CSS</option>
+            <option value="python">Python</option>
+            <option 
+value="javascript">JavaScript</option>
+            <option value="typescript">TypeScript</option>
+            <option value="sql">SQL</option>
+            <option value="php">PHP</option>
+            <option value="c">C</option>
+            <option value="c#">C#</option>
+            <option value="c++">C++</option>
+            <option value="rust">Rust</option>
+            <option value="r">R</option>
+            <option value="golang">Go (Golang)</option>
+          </select>
+          <button class="btn-primary" id="analyze-btn">Analyze Code</button>
+        </div>
+      </div>
+      <div class="editor-container">
+        <textarea id="code-input" spellcheck="false" placeholder="// Paste your snippet here...&#10;function calculateTotal(items) {&#10;  let total = 0;&#10;  for(let i = 0; i <= items.length; i++) {&#10;    total += items[i].price;&#10;  }&#10;  return total&#10;}"></textarea>
+      </div>
+    </section>
+
+    <!-- Right Panel: Diagnostics & Output -->
+    <section class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Diagnostic Results</span>
+        <div class="controls">
+          <button id="clear-btn">Clear Output</button>
+        </div>
+      </div>
+      
+      <div class="loader" id="loader">
+        <div class="spinner"></div>
+        <span>Analyzing AST & runtime patterns...</span>
+      </div>
+
+      <div class="output-container" id="output-container">
+        <div style="color: var(--text-muted); text-align: center; margin-top: 2rem;">
+          Run an analysis to detect potential bugs, performance bottlenecks, or security risks.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- External Library for Syntax Highlighting -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const analyzeBtn = document.getElementById('analyze-btn');
+      const clearBtn = document.getElementById('clear-btn');
+      const codeInput = document.getElementById('code-input');
+      const outputContainer = document.getElementById('output-container');
+      const loader = document.getElementById('loader');
+
+      analyzeBtn.addEventListener('click', () => {
+        const code = codeInput.value.trim();
+        if (!code) return;
+
+        // Show Loader
+        loader.style.display = 'flex';
+        outputContainer.style.display = 'none';
+
+        // Simulated AI static analysis delay
+        setTimeout(() => {
+          loader.style.display = 'none';
+          outputContainer.style.display = 'flex';
+          outputContainer.innerHTML = ''; // Clear prior results
+
+          const mockResults = runStaticAnalysis(code);
+          renderResults(mockResults);
+        }, 1200);
+      });
+
+      clearBtn.addEventListener('click', () => {
+        outputContainer.innerHTML = `
+          <div style="color: var(--text-muted); text-align: center; margin-top: 2rem;">
+            Run an analysis to detect potential bugs, performance bottlenecks, or security risks.
+          </div>`;
+      });
+
+      function runStaticAnalysis(sourceCode) {
+        // Pattern-matching engine simulating AI heuristics
+        const issues = [];
+
+        if (sourceCode.includes('<=') && sourceCode.includes('.length')) {
+          issues.push({
+            type: 'error',
+            title: 'Off-By-One Error Detected',
+            line: 'Line ' + getLineNumber(sourceCode, '<='),
+            description: 'Array index out-of-bounds. Iterating with `<=` on `.length` leads to an undefined access on the final iteration.',
+            suggestion: `// Recommended Fix:\nfor (let i = 0; i < items.length; i++) { ... }`
+          });
+        }
+
+        if (sourceCode.includes('==') && !sourceCode.includes('===')) {
+          issues.push({
+            type: 'warning',
+            title: 'Loose Equality Operator',
+            line: 'Line ' + getLineNumber(sourceCode, '=='),
+            description: 'Using `==` allows implicit type coercion, which can produce unexpected runtime evaluations.',
+            suggestion: `// Recommended Fix:\n// Replace '==' with strict equality '==='`
+          });
+        }
+
+        if (issues.length === 0) {
+          issues.push({
+            type: 'info',
+            title: 'No Critical Issues Found',
+            line: 'Global Scope',
+            description: 'The static analyzer did not detect standard syntax errors or common antipatterns in this snippet.',
+            suggestion: `// Snippet appears structurally sound.`
+          });
+        }
+
+        return issues;
+      }
+
+      function getLineNumber(code, substring) {
+        const index = code.indexOf(substring);
+        if (index === -1) return 1;
+        return code.substring(0, index).split('\n').length;
+      }
+
+      function renderResults(issues) {
+        issues.forEach(issue => {
+          const card = document.createElement('div');
+          card.className = `issue-card ${issue.type}`;
+
+          card.innerHTML = `
+            <div class="issue-header">
+              <span class="issue-title">${escapeHtml(issue.title)}</span>
+              <span class="issue-line">${issue.line}</span>
+            </div>
+            <div class="issue-desc">${escapeHtml(issue.description)}</div>
+            <pre><code class="language-javascript">${escapeHtml(issue.suggestion)}</code></pre>
+          `;
+
+          outputContainer.appendChild(card);
+        });
+
+        // Trigger syntax highlighting on code snippets inside output
+        document.querySelectorAll('pre code').forEach((el) => {
+          hljs.highlightElement(el);
+        });
+      }
+
+      function escapeHtml(str) {
+        return str
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+    });
+  </script>
+</body>
+</html>
